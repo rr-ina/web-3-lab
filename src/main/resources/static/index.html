@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Web Lab 3 Ryndych Dariia</title>
+</head>
+<body>
+  <h1>Web Lab 3 Ryndych Dariia</h1>
+
+  <p>Status: <span id="status">Not logged in</span></p>
+
+  <button onclick="login()">Login</button>
+  <button onclick="getUserInfo()" id="btn-userinfo">Get User Info</button>
+
+  <p id="result">Place for user information</p>
+
+  <script>
+    window.onload = async function() {
+      await checkStatus();
+    }
+
+    async function checkStatus() {
+      const res = await fetch("/user-info", { credentials: "include" });
+      if (res.status === 200) {
+        document.getElementById("status").textContent = "Logged in";
+      } else {
+        document.getElementById("status").textContent = "Not logged in";
+      }
+    }
+
+    function login() {
+      window.location.href = "/login";
+    }
+
+    async function getUserInfo() {
+      const res = await fetch("/user-info", { credentials: "include" });
+      const data = await res.json();
+
+      if (res.status === 401) {
+        document.getElementById("status").textContent = "Not logged in";
+        document.getElementById("result").textContent = "401 Unauthorized";
+      } else {
+        document.getElementById("status").textContent = "Logged in";
+        document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+      }
+    }
+  </script>
+  </script>
+</body>
+</html>
