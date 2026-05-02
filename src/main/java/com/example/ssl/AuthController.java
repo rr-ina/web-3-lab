@@ -36,7 +36,7 @@ public class AuthController {
 
     @GetMapping("/callback")
     public void callback(@RequestParam String code,
-                         HttpServletResponse response) throws IOException {
+            HttpServletResponse response) throws IOException {
 
         RestTemplate restTemplate = createInsecureRestTemplate();
 
@@ -55,8 +55,7 @@ public class AuthController {
         ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(
                 casdoor.getEndpoint() + "/api/login/oauth/access_token",
                 request,
-                Map.class
-        );
+                Map.class);
 
         if (tokenResponse.getStatusCode().is2xxSuccessful()) {
             String accessToken = (String) tokenResponse.getBody().get("access_token");
@@ -70,6 +69,9 @@ public class AuthController {
 
         response.sendRedirect("/index.html");
     }
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
 
     @GetMapping("/user-info")
     public ResponseEntity<?> userInfo(HttpServletRequest request) {
@@ -90,27 +92,16 @@ public class AuthController {
                     .body(Map.of("error", "Unauthorized — токен відсутній"));
         }
 
-        RestTemplate restTemplate = createInsecureRestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-
         try {
-            ResponseEntity<Map> userInfoResponse = restTemplate.exchange(
-                    casdoor.getEndpoint() + "/api/userinfo",
-                    HttpMethod.GET,
-                    entity,
-                    Map.class
-            );
-            
-            Map body = userInfoResponse.getBody();
-            
-            if (body != null && "error".equals(body.get("status"))) {
-                return ResponseEntity.status(401)
-                        .body(Map.of("error", "Unauthorized — токен невалідний"));
-            }
-            
-            return ResponseEntity.ok(body);
+            io.jsonwebtoken.Claims claims = jwtDecoder.decodeToken(token);
+    
+            Map<String, Object> userInfo = new java.util.HashMap<>();
+            userInfo.put("sub", claims.getSubject());
+            userInfo.put("name", claims.get("name", String.class));
+            userInfo.put("email", claims.get("email", String.class));
+            userInfo.put("preferred_username", claims.get("preferred_username", String.class));
+    
+            return ResponseEntity.ok(userInfo);
         } catch (Exception e) {
             return ResponseEntity.status(401)
                     .body(Map.of("error", "Unauthorized — токен невалідний"));
@@ -119,12 +110,18 @@ public class AuthController {
 
     private RestTemplate createInsecureRestTemplate() {
         try {
-            TrustManager[] trustAll = new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    public void checkClientTrusted(X509Certificate[] c, String a) {}
-                    public void checkServerTrusted(X509Certificate[] c, String a) {}
-                }
+            TrustManager[] trustAll = new TrustManager[] {
+                    new X509TrustManager() {
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+
+                        public void checkClientTrusted(X509Certificate[] c, String a) {
+                        }
+
+                        public void checkServerTrusted(X509Certificate[] c, String a) {
+                        }
+                    }
             };
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustAll, new java.security.SecureRandom());
